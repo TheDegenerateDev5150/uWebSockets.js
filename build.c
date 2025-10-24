@@ -131,18 +131,6 @@ void copy_files() {
 #endif
 }
 
-/* Special case for windows */
-void build_windows(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
-    
-    /* For all versions */
-    for (unsigned int i = 0; i < sizeof(versions) / sizeof(struct node_version); i++) {
-        run("cl /Zc:__cplusplus /MD /W3 /D WIN32_LEAN_AND_MEAN /D \"UWS_WITH_PROXY\" /D \"LIBUS_USE_LIBUV\" /D \"LIBUS_USE_QUIC\" /I uWebSockets/uSockets/lsquic/include /I uWebSockets/uSockets/lsquic/wincompat /I uWebSockets/uSockets/boringssl/include /D \"LIBUS_USE_OPENSSL\" /std:c++20 /I uWebSockets/uSockets/src uWebSockets/uSockets/src/*.c uWebSockets/uSockets/src/crypto/sni_tree.cpp "
-            "uWebSockets/uSockets/src/eventing/*.c uWebSockets/uSockets/src/crypto/*.c /I targets/node-%s/include/node /I uWebSockets/src /EHsc "
-            "/Ox /LD /Fedist/uws_win32_%s_%s.node src/addon.cpp advapi32.lib uWebSockets/uSockets/boringssl/x64/ssl/ssl.lib uWebSockets/uSockets/boringssl/x64/crypto/crypto.lib uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib targets/node-%s/node.lib",
-            versions[i].name, arch, versions[i].abi, versions[i].name);
-    }
-}
-
 int main() {
     printf("[Preparing]\n");
     prepare();
@@ -170,10 +158,10 @@ int main() {
 
 
 #ifdef IS_WINDOWS
-    /* We can use clang, but we currently do use cl.exe still */
-    build_windows("clang",
-          "clang++",
-          "",
+    /* Windows build using clang with MSVC ABI */
+    build("clang -target x86_64-pc-windows-msvc -IuWebSockets/uSockets/lsquic/wincompat",
+          "clang++ -target x86_64-pc-windows-msvc -IuWebSockets/uSockets/lsquic/wincompat",
+          "-target x86_64-pc-windows-msvc uWebSockets/uSockets/boringssl/%s/ssl/ssl.lib uWebSockets/uSockets/boringssl/%s/crypto/crypto.lib uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib targets/node-%s/node.lib -ladvapi32 -o dist/uws_win32_%s_%s.node",
           OS,
           X64);
 #else
@@ -194,19 +182,12 @@ int main() {
           ARM64);
 
 #else
-    /* Linux does not cross-compile but picks whatever arch the host is on */
+    /* Linux does not cross-compile but picks whatever arch the host is on (we run on both x64 and ARM64) */
     build("clang-18",
           "clang++-18",
           "-static-libstdc++ -static-libgcc -s",
           OS,
           arch);
-
-    /* If linux we also want arm64 */
-    /*build("aarch64-linux-gnu-gcc",
-        "aarch64-linux-gnu-g++",
-        "-static-libstdc++ -static-libgcc -s",
-        OS,
-        ARM64);*/
 #endif
 #endif
 
